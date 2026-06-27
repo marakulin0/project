@@ -11,7 +11,14 @@
 """
 
 import pygame
+from collections import namedtuple
 from math import sin, cos, radians
+
+# Единый формат ввода для машины. Физика принимает Input, а не читает
+# клавиатуру сама — это позволяет одному коду работать локально, на хосте
+# и на клиенте (фаза 7, сеть). Поле boost задействуется на фазе нитро.
+Input = namedtuple('Input', ['gas', 'brake', 'left', 'right', 'boost'],
+                   defaults=[False])
 
 
 def _clamp(value, low, high):
@@ -59,11 +66,11 @@ class BaseCar():
     def draw_car(self):
         self.screen.blit(self.image_to_draw, self.rect)
 
-    def _control(self, gas, brake, left, right):
+    def update(self, inp):
         # --- продольная динамика ---
-        if gas:
+        if inp.gas:
             self.speed += self.ACCEL
-        elif brake:
+        elif inp.brake:
             if self.speed > 0:
                 self.speed -= self.BRAKE
             else:
@@ -74,7 +81,7 @@ class BaseCar():
 
         # --- поворот: чувствительность растёт со скоростью, в реверсе руль
         #     инвертируется (как при сдаче назад на реальной машине) ---
-        self.steering = (-1.0 if left else 0.0) + (1.0 if right else 0.0)
+        self.steering = (-1.0 if inp.left else 0.0) + (1.0 if inp.right else 0.0)
         ratio = min(1.0, abs(self.speed) / self.TURN_FULL_AT)
         direction = 1.0 if self.speed >= 0 else -1.0
         self.angle += self.steering * self.TURN_SPEED * ratio * direction
@@ -111,14 +118,16 @@ class BaseCar():
                 break
 
     def move_car1(self):
+        """Локальный адаптер клавиатуры для игрока 1 (WASD + Left Shift)."""
         k = pygame.key.get_pressed()
-        self._control(k[pygame.K_w], k[pygame.K_s],
-                      k[pygame.K_a], k[pygame.K_d])
+        self.update(Input(k[pygame.K_w], k[pygame.K_s],
+                          k[pygame.K_a], k[pygame.K_d], k[pygame.K_LSHIFT]))
 
     def move_car2(self):
+        """Локальный адаптер клавиатуры для игрока 2 (стрелки + Right Shift)."""
         k = pygame.key.get_pressed()
-        self._control(k[pygame.K_UP], k[pygame.K_DOWN],
-                      k[pygame.K_LEFT], k[pygame.K_RIGHT])
+        self.update(Input(k[pygame.K_UP], k[pygame.K_DOWN],
+                          k[pygame.K_LEFT], k[pygame.K_RIGHT], k[pygame.K_RSHIFT]))
 
     def collision_handing(self, rects):
         # столкновения теперь разрешаются внутри движения;

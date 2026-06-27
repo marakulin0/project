@@ -35,63 +35,37 @@ def draw_skid(skid_layer, car, color=(25, 25, 25, 150)):
         pygame.draw.circle(skid_layer, color, (cx, cy), 3)
 
 
-def run_road():
+# Конфигурация трасс: фон, класс машины, точки спавна (x, y, угол),
+# коллайдеры старта/середины. Ключи 0/1 совпадают с возвратом game.menu_1().
+TRACKS = {
+    0: dict(name='road', bg='road.png', car_cls=Car_road,
+            spawns=[(404, 625, 270), (404, 677, 270)],
+            start=start_collider_road, mid=mid_collider_road),
+    1: dict(name='bio', bg='bio.png', car_cls=Car_bio,
+            spawns=[(875, 535, 0), (960, 535, 0)],
+            start=start_collider_bio, mid=mid_collider_bio),
+}
+
+
+def run_race(cfg):
     points1 = points2 = 0
     now = [0, 0]
-    bg = pygame.image.load(resource('road.png'))
+    bg = pygame.image.load(resource(cfg['bg']))
     pygame.display.set_caption('Racing')
-    # старт на нижней прямой, носом на запад (270°) — вдоль трассы;
-    # машины стоят рядом поперёк коридора (одинаковый x — честный старт)
-    car1 = Car_road(screen, 404, 625, resource('car_1.png'), 270)
-    car2 = Car_road(screen, 404, 677, resource('car_2.png'), 270)
+    (x1, y1, a1), (x2, y2, a2) = cfg['spawns']
+    car1 = cfg['car_cls'](screen, x1, y1, resource('car_1.png'), a1)
+    car2 = cfg['car_cls'](screen, x2, y2, resource('car_2.png'), a2)
     skid_layer = pygame.Surface((1024, 768), pygame.SRCALPHA)
+    start_col, mid_col = cfg['start'], cfg['mid']
 
-    controls.countdown(bg)
-
-    running = True
-    while running:
-        for e in pygame.event.get():
-            if e.type == pygame.QUIT:
-                running = False
-            if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
-                start()
-                return
-
+    def draw_scene():
         screen.blit(bg, (0, 0))
         screen.blit(skid_layer, (0, 0))
-
-        car1.collision_handing(car1.rects)
-        car1.move_car1()
-        car2.collision_handing(car2.rects)
-        car2.move_car2()
-
-        draw_skid(skid_layer, car1, (25, 20, 20, 150))
-        draw_skid(skid_layer, car2, (20, 20, 30, 140))
-
         car1.draw_car()
         car2.draw_car()
+        controls.draw_laps(points1, points2)
 
-        controls.pause()
-        clock.tick(FPS)
-
-        controls.mid_collider_handler(car1, car2, mid_collider_road)
-        points1, points2, now[0], now[1] = controls.points_counter(
-            car1, car2, start_collider_road, points1, points2, now)
-
-        finish(points1, points2)
-        pygame.display.update()
-
-
-def run_bio():
-    points1 = points2 = 0
-    now = [0, 0]
-    bg = pygame.image.load(resource('bio.png'))
-    pygame.display.set_caption('Racing')
-    car1 = Car_bio(screen, 875, 535, resource('car_1.png'))
-    car2 = Car_bio(screen, 960, 535, resource('car_2.png'))
-    skid_layer = pygame.Surface((1024, 768), pygame.SRCALPHA)
-
-    controls.countdown(bg)
+    controls.countdown(draw_scene)
 
     running = True
     while running:
@@ -106,8 +80,6 @@ def run_bio():
         screen.blit(skid_layer, (0, 0))
 
         car1.move_car1()
-        car1.collision_handing(car1.rects)
-        car2.collision_handing(car2.rects)
         car2.move_car2()
 
         draw_skid(skid_layer, car1, (25, 20, 20, 150))
@@ -119,9 +91,9 @@ def run_bio():
         controls.pause()
         clock.tick(FPS)
 
-        controls.mid_collider_handler(car1, car2, mid_collider_bio)
+        controls.mid_collider_handler(car1, car2, mid_col)
         points1, points2, now[0], now[1] = controls.points_counter(
-            car1, car2, start_collider_bio, points1, points2, now)
+            car1, car2, start_col, points1, points2, now)
 
         finish(points1, points2)
         pygame.display.update()
@@ -173,13 +145,11 @@ def start():
     pygame.mixer.music.load(resource('font_music.MP3'))
     pygame.mixer.music.play(-1)
     game.menu()
-    game.menu_1()
-    if game.menu_1() == 0:
-        run_road()
-    else:
-        run_bio()
+    choice = game.menu_1()
+    run_race(TRACKS[choice])
     pygame.quit()
 
 
-start()
-pygame.quit()
+if __name__ == '__main__':
+    start()
+    pygame.quit()

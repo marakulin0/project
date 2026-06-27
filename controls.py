@@ -35,7 +35,8 @@ def draw_laps(p1, p2):
         pygame.draw.circle(screen, (180, 180, 180), (930 + i * 26, 20), 9, 1)
 
 
-def countdown(bg):
+def countdown(draw_scene):
+    """draw_scene() — колбэк, рисующий фон, машины и HUD под цифрой отсчёта."""
     font_big = pygame.font.SysFont('arial', 200, bold=True)
     font_go  = pygame.font.SysFont('arial', 150, bold=True)
     clock = pygame.time.Clock()
@@ -61,7 +62,7 @@ def countdown(bg):
             shadow_surf = font.render(label, True, (0, 0, 0))
             shadow_surf.set_alpha(alpha // 2)
 
-            screen.blit(bg, (0, 0))
+            draw_scene()
             cx = 512 - text_surf.get_width() // 2
             cy = 384 - text_surf.get_height() // 2
             screen.blit(shadow_surf, (cx + 6, cy + 6))
