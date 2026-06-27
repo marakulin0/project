@@ -40,8 +40,10 @@ def run_road():
     now = [0, 0]
     bg = pygame.image.load(resource('road.png'))
     pygame.display.set_caption('Racing')
-    car1 = Car_road(screen, 355, 715, resource('car_1.png'))
-    car2 = Car_road(screen, 455, 715, resource('car_2.png'))
+    # старт на нижней прямой, носом на запад (270°) — вдоль трассы;
+    # машины стоят рядом поперёк коридора (одинаковый x — честный старт)
+    car1 = Car_road(screen, 404, 625, resource('car_1.png'), 270)
+    car2 = Car_road(screen, 404, 677, resource('car_2.png'), 270)
     skid_layer = pygame.Surface((1024, 768), pygame.SRCALPHA)
 
     controls.countdown(bg)

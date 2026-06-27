@@ -34,7 +34,7 @@ class BaseCar():
     SKID_SPEED = 2.8      # порог скорости для следов шин
     rects = []            # список стен трассы (Rect)
 
-    def __init__(self, screen, x0, y0, filename):
+    def __init__(self, screen, x0, y0, filename, start_angle=0.0):
         self.screen = screen
         base = pygame.transform.scale(pygame.image.load(filename), (32, 70))
         self.base_image = base
@@ -42,11 +42,13 @@ class BaseCar():
         # x0/y0 приходят как левый-верхний угол — переводим в центр
         self.x = float(x0 + 16)
         self.y = float(y0 + 35)
-        self.angle = 0.0       # курс в градусах, 0 = нос вверх
+        # курс в градусах: 0 = нос вверх, 90 = вправо (восток), 270 = влево (запад)
+        self.angle = float(start_angle)
         self.speed = 0.0       # знаковая скорость вдоль курса
         self.steering = 0.0    # текущее положение руля (-1..1) для скида
         self.ready_to_finish = False
-        self.rect = base.get_rect(center=(round(self.x), round(self.y)))
+        self.image_to_draw = pygame.transform.rotate(base, -self.angle)
+        self.rect = self.image_to_draw.get_rect(center=(round(self.x), round(self.y)))
         self.hitbox = pygame.Rect(0, 0, self.HITBOX, self.HITBOX)
         self.hitbox.center = (round(self.x), round(self.y))
 
