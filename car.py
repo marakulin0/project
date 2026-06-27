@@ -1,8 +1,8 @@
 import pygame
 from math import sin, cos, pi
 
-DRIFT = 0.76        # инерция: чем выше, тем больше скольжение
-TURN_RATE = 0.038   # базовая чувствительность поворота
+DRIFT = 0.55        # инерция: чем выше, тем больше скольжение (0 = руль мгновенный)
+TURN_RATE = 0.052   # базовая чувствительность поворота
 
 
 class Car_road():
@@ -19,8 +19,8 @@ class Car_road():
         self.speed = 0
         self.vx = 0.0       # фактическая скорость по X (с инерцией)
         self.vy = 0.0       # фактическая скорость по Y (с инерцией)
-        self.acceleration = -0.015
-        self.max_speed = 0.42
+        self.acceleration = -0.022
+        self.max_speed = 0.6
         self.angle = 0
         self.ready_to_finish = False
 
@@ -29,7 +29,7 @@ class Car_road():
 
     @property
     def is_skidding(self):
-        return abs(self.speed) > 0.18
+        return abs(self.speed) > 0.3
 
     def _move(self, keys, fwd, back, left, right):
         if keys[fwd]:
@@ -43,12 +43,10 @@ class Car_road():
         if self.speed > self.max_speed:
             self.speed = self.max_speed
 
-        # Угловая скорость зависит от скорости: стоя поворот невозможен,
-        # на высокой скорости — уменьшенный grip (машина хуже слушается)
-        speed_abs = abs(self.speed)
-        speed_factor = min(1.0, speed_abs / 0.06)
-        grip = max(0.5, 1.0 - (speed_abs - 0.22) * 1.4) if speed_abs > 0.22 else 1.0
-        tr = TURN_RATE * speed_factor * grip
+        # Поворот возможен только в движении; на самой малой скорости —
+        # плавный набор чувствительности, чтобы не было рывка с места
+        speed_factor = min(1.0, abs(self.speed) / 0.04)
+        tr = TURN_RATE * speed_factor
 
         if keys[left]:
             self.angle += tr
@@ -57,7 +55,7 @@ class Car_road():
 
         # Торможение за счёт трения
         if not (keys[fwd] or keys[back]):
-            self.speed *= 0.93
+            self.speed *= 0.94
 
         # Инерция: плавно сближаем скорость с текущим направлением взгляда
         tx = self.speed * cos(self.angle)
@@ -140,8 +138,8 @@ class Car_bio():
         self.speed = 0
         self.vx = 0.0
         self.vy = 0.0
-        self.acceleration = -0.01
-        self.max_speed = 0.34
+        self.acceleration = -0.018
+        self.max_speed = 0.48
         self.angle = 0
         self.ready_to_finish = False
 
@@ -150,7 +148,7 @@ class Car_bio():
 
     @property
     def is_skidding(self):
-        return abs(self.speed) > 0.13
+        return abs(self.speed) > 0.24
 
     def _move(self, keys, fwd, back, left, right):
         if keys[fwd]:
@@ -163,10 +161,8 @@ class Car_bio():
         if self.speed > self.max_speed:
             self.speed = self.max_speed
 
-        speed_abs = abs(self.speed)
-        speed_factor = min(1.0, speed_abs / 0.05)
-        grip = max(0.5, 1.0 - (speed_abs - 0.18) * 1.4) if speed_abs > 0.18 else 1.0
-        tr = TURN_RATE * speed_factor * grip
+        speed_factor = min(1.0, abs(self.speed) / 0.04)
+        tr = TURN_RATE * speed_factor
 
         if keys[left]:
             self.angle += tr
@@ -174,7 +170,7 @@ class Car_bio():
             self.angle -= tr
 
         if not (keys[fwd] or keys[back]):
-            self.speed *= 0.93
+            self.speed *= 0.94
 
         # Car_bio использует другую ось координат
         tx = self.speed * sin(self.angle)
