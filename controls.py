@@ -35,6 +35,30 @@ def draw_laps(p1, p2):
         pygame.draw.circle(screen, (180, 180, 180), (930 + i * 26, 20), 9, 1)
 
 
+def _nitro_bar(x, y, value, boosting):
+    w, h = 130, 14
+    pygame.draw.rect(screen, (28, 28, 38), (x, y, w, h), border_radius=3)
+    fill = int((w - 4) * value)
+    if value < 0.2:
+        col = (230, 70, 60)
+    elif boosting:
+        col = (130, 235, 255)
+    else:
+        col = (60, 170, 230)
+    if fill > 0:
+        pygame.draw.rect(screen, col, (x + 2, y + 2, fill, h - 4), border_radius=2)
+    pygame.draw.rect(screen, (160, 160, 175), (x, y, w, h), 1, border_radius=3)
+
+
+def draw_nitro(car1, car2):
+    font = pygame.font.SysFont('arial', 12, bold=True)
+    screen.blit(font.render('NITRO', True, (200, 200, 210)), (10, 32))
+    _nitro_bar(10, 46, car1.nitro, car1.boosting)
+    lbl = font.render('NITRO', True, (200, 200, 210))
+    screen.blit(lbl, (1014 - lbl.get_width(), 32))
+    _nitro_bar(1014 - 130, 46, car2.nitro, car2.boosting)
+
+
 def countdown(draw_scene):
     """draw_scene() — колбэк, рисующий фон, машины и HUD под цифрой отсчёта."""
     font_big = pygame.font.SysFont('arial', 200, bold=True)
@@ -113,6 +137,7 @@ def points_counter(car1, car2, finish, points1, points2, before):
         if not pygame.rect.Rect.colliderect(rect2, finish):
             now[1] = 0
     draw_laps(points1, points2)
+    draw_nitro(car1, car2)
     return points1, points2, *now
 
 

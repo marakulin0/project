@@ -1,5 +1,6 @@
 import sys
 import os
+from math import sin, cos, radians
 import pygame
 from menu import Menu
 from car import Car_road, Car_bio, resolve_car_collision
@@ -35,6 +36,17 @@ def draw_skid(skid_layer, car, color=(25, 25, 25, 150)):
         pygame.draw.circle(skid_layer, color, (cx, cy), 3)
 
 
+def draw_boost(car):
+    """Свечение позади машины, пока активно нитро."""
+    if not car.boosting:
+        return
+    rad = radians(car.angle)
+    bx = int(car.x - sin(rad) * 32)   # позади машины (минус направление вперёд)
+    by = int(car.y + cos(rad) * 32)
+    pygame.draw.circle(screen, (120, 210, 255), (bx, by), 6)
+    pygame.draw.circle(screen, (225, 245, 255), (bx, by), 3)
+
+
 # Конфигурация трасс: фон, класс машины, точки спавна (x, y, угол),
 # коллайдеры старта/середины. Ключи 0/1 совпадают с возвратом game.menu_1().
 TRACKS = {
@@ -64,6 +76,7 @@ def run_race(cfg):
         car1.draw_car()
         car2.draw_car()
         controls.draw_laps(points1, points2)
+        controls.draw_nitro(car1, car2)
 
     controls.countdown(draw_scene)
 
@@ -86,6 +99,8 @@ def run_race(cfg):
         draw_skid(skid_layer, car1, (25, 20, 20, 150))
         draw_skid(skid_layer, car2, (20, 20, 30, 140))
 
+        draw_boost(car1)
+        draw_boost(car2)
         car1.draw_car()
         car2.draw_car()
 

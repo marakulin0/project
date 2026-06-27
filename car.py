@@ -25,10 +25,6 @@ CAR_HALF_W = 15     # половина ширины кузова (поперёк
 CAR_HALF_L = 32     # половина длины кузова (вдоль),  px  (спрайт 70 длин.)
 
 
-def _clamp(value, low, high):
-    return low if value < low else high if value > high else value
-
-
 def _obb_radius(angle, axis):
     """Проекционный «радиус» повёрнутого кузова машины на ось axis."""
     rad = radians(angle)
@@ -82,6 +78,10 @@ class BaseCar():
     WALL_BOUNCE = 0.30    # доля скорости, сохраняемая после удара о стену
     HITBOX = 26           # сторона квадратного хитбокса для стен
     SKID_SPEED = 2.8      # порог скорости для следов шин
+    NITRO_MULT = 1.45     # множитель максимальной скорости при нитро
+    NITRO_ACCEL = 1.8     # множитель ускорения при нитро
+    NITRO_DRAIN = 1 / 120.0    # расход заряда в кадр (полный бак ~2 c)
+    NITRO_RECHARGE = 1 / 420.0  # подзарядка в кадр (полный бак ~7 c)
     rects = []            # список стен трассы (Rect)
 
     def __init__(self, screen, x0, y0, filename, start_angle=0.0):
@@ -96,6 +96,8 @@ class BaseCar():
         self.angle = float(start_angle)
         self.speed = 0.0       # знаковая скорость вдоль курса
         self.steering = 0.0    # текущее положение руля (-1..1) для скида
+        self.nitro = 1.0       # заряд нитро (0..1)
+        self.boosting = False  # активно ли нитро в этом кадре
         self.ready_to_finish = False
         self.image_to_draw = pygame.transform.rotate(base, -self.angle)
         self.rect = self.image_to_draw.get_rect(center=(round(self.x), round(self.y)))
@@ -110,9 +112,12 @@ class BaseCar():
         self.screen.blit(self.image_to_draw, self.rect)
 
     def update(self, inp):
+        # --- нитро активно при зажатой клавише, наличии заряда и газе вперёд ---
+        self.boosting = bool(inp.boost) and self.nitro > 0 and inp.gas
+
         # --- продольная динамика ---
         if inp.gas:
-            self.speed += self.ACCEL
+            self.speed += self.ACCEL * (self.NITRO_ACCEL if self.boosting else 1.0)
         elif inp.brake:
             if self.speed > 0:
                 self.speed -= self.BRAKE
@@ -120,7 +125,21 @@ class BaseCar():
                 self.speed -= self.REVERSE_ACCEL
         else:
             self.speed *= self.ROLL
-        self.speed = _clamp(self.speed, -self.MAX_REVERSE, self.MAX_SPEED)
+
+        # верхний предел: при нитро потолок выше; после нитро скорость плавно
+        # спадает к обычному максимуму, а не обрезается резко
+        ceiling = self.MAX_SPEED * (self.NITRO_MULT if self.boosting else 1.0)
+        if self.speed > ceiling:
+            self.speed = max(ceiling, self.speed * 0.96)
+        if self.speed < -self.MAX_REVERSE:
+            self.speed = -self.MAX_REVERSE
+
+        # --- расход / подзарядка заряда нитро (подзарядка только когда
+        #     клавиша отпущена — нельзя «дозаряжаться», удерживая нитро) ---
+        if self.boosting:
+            self.nitro = max(0.0, self.nitro - self.NITRO_DRAIN)
+        elif not inp.boost:
+            self.nitro = min(1.0, self.nitro + self.NITRO_RECHARGE)
 
         # --- поворот: чувствительность растёт со скоростью, в реверсе руль
         #     инвертируется (как при сдаче назад на реальной машине) ---
