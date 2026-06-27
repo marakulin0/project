@@ -4,6 +4,7 @@ screen = pygame.display.set_mode((1024, 768))
 pygame.font.init()
 
 MAX_LAPS = 3
+SPEED_SCALE = 40   # px/кадр -> условные км/ч на спидометре
 
 
 def print_text(message, x, y, font_colour=(255, 255, 255),
@@ -57,6 +58,17 @@ def draw_nitro(car1, car2):
     lbl = font.render('NITRO', True, (200, 200, 210))
     screen.blit(lbl, (1014 - lbl.get_width(), 32))
     _nitro_bar(1014 - 130, 46, car2.nitro, car2.boosting)
+
+
+def draw_speed(car1, car2):
+    font = pygame.font.SysFont('arial', 20, bold=True)
+    for car, right_edge, left_align in ((car1, None, True), (car2, 1014, False)):
+        text = f'{int(abs(car.speed) * SPEED_SCALE)} км/ч'
+        col = (130, 235, 255) if car.boosting else (235, 235, 240)
+        surf = font.render(text, True, col)
+        x = 10 if left_align else right_edge - surf.get_width()
+        screen.blit(font.render(text, True, (0, 0, 0)), (x + 1, 65))
+        screen.blit(surf, (x, 64))
 
 
 def countdown(draw_scene):
@@ -138,6 +150,7 @@ def points_counter(car1, car2, finish, points1, points2, before):
             now[1] = 0
     draw_laps(points1, points2)
     draw_nitro(car1, car2)
+    draw_speed(car1, car2)
     return points1, points2, *now
 
 

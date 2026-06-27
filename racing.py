@@ -77,6 +77,7 @@ def run_race(cfg):
         car2.draw_car()
         controls.draw_laps(points1, points2)
         controls.draw_nitro(car1, car2)
+        controls.draw_speed(car1, car2)
 
     controls.countdown(draw_scene)
 
