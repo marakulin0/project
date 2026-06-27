@@ -2,7 +2,7 @@ import sys
 import os
 import pygame
 from menu import Menu
-from car import Car_road, Car_bio
+from car import Car_road, Car_bio, resolve_car_collision
 import controls
 
 
@@ -81,6 +81,7 @@ def run_race(cfg):
 
         car1.move_car1()
         car2.move_car2()
+        resolve_car_collision(car1, car2)
 
         draw_skid(skid_layer, car1, (25, 20, 20, 150))
         draw_skid(skid_layer, car2, (20, 20, 30, 140))

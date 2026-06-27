@@ -20,9 +20,41 @@ from math import sin, cos, radians
 Input = namedtuple('Input', ['gas', 'brake', 'left', 'right', 'boost'],
                    defaults=[False])
 
+CAR_BOUNCE = 0.55   # доля скорости, сохраняемая после столкновения машин
+
 
 def _clamp(value, low, high):
     return low if value < low else high if value > high else value
+
+
+def resolve_car_collision(a, b):
+    """Расталкивает две машины при пересечении хитбоксов (AABB по оси
+    наименьшего проникновения), гасит скорость и выталкивает из стен,
+    чтобы толчок не вдавил машину в стену."""
+    if not a.hitbox.colliderect(b.hitbox):
+        return
+    ax, ay = a.hitbox.center
+    bx, by = b.hitbox.center
+    dx, dy = ax - bx, ay - by
+    overlap_x = (a.hitbox.width + b.hitbox.width) / 2 - abs(dx)
+    overlap_y = (a.hitbox.height + b.hitbox.height) / 2 - abs(dy)
+    if overlap_x <= 0 or overlap_y <= 0:
+        return
+    if overlap_x < overlap_y:                  # толчок по горизонтали
+        push = overlap_x / 2
+        sign = 1 if dx >= 0 else -1
+        a.x += sign * push
+        b.x -= sign * push
+    else:                                      # толчок по вертикали
+        push = overlap_y / 2
+        sign = 1 if dy >= 0 else -1
+        a.y += sign * push
+        b.y -= sign * push
+    for c in (a, b):
+        c.hitbox.center = (round(c.x), round(c.y))
+        c._depenetrate_walls()
+        c.rect.center = (round(c.x), round(c.y))
+        c.speed *= CAR_BOUNCE
 
 
 class BaseCar():
@@ -116,6 +148,25 @@ class BaseCar():
                 self.y = float(self.hitbox.centery)
                 self.speed *= self.WALL_BOUNCE
                 break
+
+    def _depenetrate_walls(self):
+        """Выталкивает машину из любой перекрытой стены по оси наименьшего
+        проникновения (используется после толчка машина-машина)."""
+        for wall in self.rects:
+            if self.hitbox.colliderect(wall):
+                push_right = wall.right - self.hitbox.left
+                push_left  = self.hitbox.right - wall.left
+                push_down  = wall.bottom - self.hitbox.top
+                push_up    = self.hitbox.bottom - wall.top
+                dx = push_right if push_right < push_left else -push_left
+                dy = push_down if push_down < push_up else -push_up
+                if abs(dx) <= abs(dy):
+                    self.hitbox.x += dx
+                else:
+                    self.hitbox.y += dy
+                self.x = float(self.hitbox.centerx)
+                self.y = float(self.hitbox.centery)
+                self.speed *= self.WALL_BOUNCE
 
     def move_car1(self):
         """Локальный адаптер клавиатуры для игрока 1 (WASD + Left Shift)."""
