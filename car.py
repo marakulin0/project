@@ -21,35 +21,46 @@ Input = namedtuple('Input', ['gas', 'brake', 'left', 'right', 'boost'],
                    defaults=[False])
 
 CAR_BOUNCE = 0.55   # доля скорости, сохраняемая после столкновения машин
+CAR_HALF_W = 15     # половина ширины кузова (поперёк), px  (спрайт 32 шир.)
+CAR_HALF_L = 32     # половина длины кузова (вдоль),  px  (спрайт 70 длин.)
 
 
 def _clamp(value, low, high):
     return low if value < low else high if value > high else value
 
 
+def _obb_radius(angle, axis):
+    """Проекционный «радиус» повёрнутого кузова машины на ось axis."""
+    rad = radians(angle)
+    fx, fy = sin(rad), -cos(rad)        # вектор «вперёд» (вдоль кузова)
+    rx, ry = cos(rad), sin(rad)         # вектор «вправо» (поперёк)
+    return (CAR_HALF_W * abs(rx * axis[0] + ry * axis[1]) +
+            CAR_HALF_L * abs(fx * axis[0] + fy * axis[1]))
+
+
 def resolve_car_collision(a, b):
-    """Расталкивает две машины при пересечении хитбоксов (AABB по оси
-    наименьшего проникновения), гасит скорость и выталкивает из стен,
-    чтобы толчок не вдавил машину в стену."""
-    if not a.hitbox.colliderect(b.hitbox):
-        return
-    ax, ay = a.hitbox.center
-    bx, by = b.hitbox.center
-    dx, dy = ax - bx, ay - by
-    overlap_x = (a.hitbox.width + b.hitbox.width) / 2 - abs(dx)
-    overlap_y = (a.hitbox.height + b.hitbox.height) / 2 - abs(dy)
-    if overlap_x <= 0 or overlap_y <= 0:
-        return
-    if overlap_x < overlap_y:                  # толчок по горизонтали
-        push = overlap_x / 2
-        sign = 1 if dx >= 0 else -1
-        a.x += sign * push
-        b.x -= sign * push
-    else:                                      # толчок по вертикали
-        push = overlap_y / 2
-        sign = 1 if dy >= 0 else -1
-        a.y += sign * push
-        b.y -= sign * push
+    """Коллизия двух машин как повёрнутых прямоугольников (OBB) методом
+    разделяющих осей (SAT): находит минимальный вектор раздвижки, толкает
+    машины в стороны, гасит скорость и выталкивает их из стен."""
+    ra, rb = radians(a.angle), radians(b.angle)
+    axes = [(sin(ra), -cos(ra)), (cos(ra), sin(ra)),
+            (sin(rb), -cos(rb)), (cos(rb), sin(rb))]
+    dx, dy = b.x - a.x, b.y - a.y
+    min_overlap, mtv = 1e9, None
+    for ax in axes:
+        dist = dx * ax[0] + dy * ax[1]
+        overlap = _obb_radius(a.angle, ax) + _obb_radius(b.angle, ax) - abs(dist)
+        if overlap <= 0:
+            return                      # разделяющая ось найдена — нет касания
+        if overlap < min_overlap:
+            min_overlap = overlap
+            s = 1 if dist >= 0 else -1
+            mtv = (ax[0] * s, ax[1] * s)   # ось, направленная от a к b
+    push = min_overlap / 2
+    a.x -= mtv[0] * push
+    a.y -= mtv[1] * push
+    b.x += mtv[0] * push
+    b.y += mtv[1] * push
     for c in (a, b):
         c.hitbox.center = (round(c.x), round(c.y))
         c._depenetrate_walls()
