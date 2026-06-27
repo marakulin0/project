@@ -71,6 +71,34 @@ def draw_speed(car1, car2):
         screen.blit(surf, (x, 64))
 
 
+def _fmt_time(frames):
+    """Кадры -> строка времени: '12.4' или '1:05.3'. None -> '--.-'."""
+    if frames is None:
+        return '--.-'
+    sec = frames / 60.0
+    m, s = divmod(sec, 60)
+    return f'{int(m)}:{s:04.1f}' if m >= 1 else f'{s:.1f}'
+
+
+def record_lap(frame, lap_start, best):
+    """Засчитан круг: возвращает (время_круга, новый_лучший, новый_lap_start)."""
+    lap = frame - lap_start
+    new_best = lap if best is None else min(best, lap)
+    return lap, new_best, frame
+
+
+def draw_timers(cur1, best1, cur2, best2):
+    font = pygame.font.SysFont('arial', 15, bold=True)
+    for cur, best, left in ((cur1, best1, True), (cur2, best2, False)):
+        lines = [f'КРУГ {_fmt_time(cur)}', f'ЛУЧШИЙ {_fmt_time(best)}']
+        for i, line in enumerate(lines):
+            surf = font.render(line, True, (235, 235, 240))
+            x = 10 if left else 1014 - surf.get_width()
+            y = 90 + i * 17
+            screen.blit(font.render(line, True, (0, 0, 0)), (x + 1, y + 1))
+            screen.blit(surf, (x, y))
+
+
 def countdown(draw_scene):
     """draw_scene() — колбэк, рисующий фон, машины и HUD под цифрой отсчёта."""
     font_big = pygame.font.SysFont('arial', 200, bold=True)

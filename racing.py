@@ -62,6 +62,9 @@ TRACKS = {
 def run_race(cfg):
     points1 = points2 = 0
     now = [0, 0]
+    frame = 0                 # кадры гонки (растут только в игровом цикле)
+    lap_start = [0, 0]        # кадр начала текущего круга у каждого игрока
+    best = [None, None]       # лучший круг в кадрах у каждого игрока
     bg = pygame.image.load(resource(cfg['bg']))
     pygame.display.set_caption('Racing')
     (x1, y1, a1), (x2, y2, a2) = cfg['spawns']
@@ -78,6 +81,8 @@ def run_race(cfg):
         controls.draw_laps(points1, points2)
         controls.draw_nitro(car1, car2)
         controls.draw_speed(car1, car2)
+        controls.draw_timers(frame - lap_start[0], best[0],
+                             frame - lap_start[1], best[1])
 
     controls.countdown(draw_scene)
 
@@ -89,6 +94,8 @@ def run_race(cfg):
             if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
                 start()
                 return
+
+        frame += 1
 
         screen.blit(bg, (0, 0))
         screen.blit(skid_layer, (0, 0))
@@ -109,8 +116,18 @@ def run_race(cfg):
         clock.tick(FPS)
 
         controls.mid_collider_handler(car1, car2, mid_col)
+        prev1, prev2 = points1, points2
         points1, points2, now[0], now[1] = controls.points_counter(
             car1, car2, start_col, points1, points2, now)
+
+        # засчитан круг -> зафиксировать время, обновить лучший, сбросить отсчёт
+        if points1 > prev1:
+            _, best[0], lap_start[0] = controls.record_lap(frame, lap_start[0], best[0])
+        if points2 > prev2:
+            _, best[1], lap_start[1] = controls.record_lap(frame, lap_start[1], best[1])
+
+        controls.draw_timers(frame - lap_start[0], best[0],
+                             frame - lap_start[1], best[1])
 
         finish(points1, points2)
         pygame.display.update()
