@@ -2,113 +2,160 @@ import pygame
 from menu import Menu
 from car import Car_road, Car_bio
 import controls
+
 screen = pygame.display.set_mode((1024, 768))
 clock = pygame.time.Clock()
-punkts = [(420, 300, u'Play', (11, 0, 77), (250, 250, 30), 0),
-          (420, 400, u'Exit', (11, 0, 77), (250, 250, 30), 1)]
+
+punkts  = [(420, 300, u'Play', (11, 0, 77), (250, 250, 30), 0),
+           (420, 400, u'Exit', (11, 0, 77), (250, 250, 30), 1)]
 punkts1 = [(100, 100, 0), (600, 100, 1)]
+
 game = Menu(punkts, punkts1)
-points1 = 0
-points2 = 0
-start_collider_road = pygame.rect.Rect(282, 618, 56, 143)
-mid_collider_road = pygame.rect.Rect(466, 182, 10, 122)
-start_collider_bio = pygame.rect.Rect(872, 521, 128, 13)
-mid_collider_bio = pygame.rect.Rect(439, 421, 10, 132)
-FPS = 60
+
+start_collider_road = pygame.rect.Rect(282, 618,  56, 143)
+mid_collider_road   = pygame.rect.Rect(466, 182,  10, 122)
+start_collider_bio  = pygame.rect.Rect(872, 521, 128,  13)
+mid_collider_bio    = pygame.rect.Rect(439, 421,  10, 132)
+
+FPS      = 60
+MAX_LAPS = 3
+
+
+def draw_skid(skid_layer, car, color=(25, 25, 25, 150)):
+    if car.is_skidding:
+        cx, cy = car.rect.center
+        pygame.draw.circle(skid_layer, color, (cx, cy), 3)
 
 
 def run_road():
-    points1 = 0
-    points2 = 0
-    running = True
+    points1 = points2 = 0
     now = [0, 0]
     bg = pygame.image.load('road.png')
     pygame.display.set_caption('Racing')
     car1 = Car_road(screen, 355, 715, 'car_1.png')
     car2 = Car_road(screen, 455, 715, 'car_2.png')
+    skid_layer = pygame.Surface((1024, 768), pygame.SRCALPHA)
+
+    controls.countdown(bg)
+
+    running = True
     while running:
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
                 running = False
-            if e.type == pygame.KEYDOWN:
-                if e.key == pygame.K_ESCAPE:
-                    start()
+            if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+                start()
+                return
+
         screen.blit(bg, (0, 0))
-        car1.draw_car()
+        screen.blit(skid_layer, (0, 0))
+
         car1.collision_handing(car1.rects)
         car1.move_car1()
-        car2.draw_car()
         car2.collision_handing(car2.rects)
         car2.move_car2()
+
+        draw_skid(skid_layer, car1, (25, 20, 20, 150))
+        draw_skid(skid_layer, car2, (20, 20, 30, 140))
+
+        car1.draw_car()
+        car2.draw_car()
+
         controls.pause()
         clock.tick(FPS)
+
         controls.mid_collider_handler(car1, car2, mid_collider_road)
-        points1, points2, now[0], now[1] = \
-            controls.points_counter(car1, car2,
-                                    start_collider_road,
-                                    points1, points2, now)
+        points1, points2, now[0], now[1] = controls.points_counter(
+            car1, car2, start_collider_road, points1, points2, now)
+
         finish(points1, points2)
         pygame.display.update()
 
 
 def run_bio():
-    points1 = 0
-    points2 = 0
+    points1 = points2 = 0
     now = [0, 0]
-    running = True
     bg = pygame.image.load('bio.png')
     pygame.display.set_caption('Racing')
     car1 = Car_bio(screen, 875, 535, 'car_1.png')
     car2 = Car_bio(screen, 960, 535, 'car_2.png')
+    skid_layer = pygame.Surface((1024, 768), pygame.SRCALPHA)
+
+    controls.countdown(bg)
+
+    running = True
     while running:
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
                 running = False
-            if e.type == pygame.KEYDOWN:
-                if e.key == pygame.K_ESCAPE:
-                    start()
+            if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+                start()
+                return
+
         screen.blit(bg, (0, 0))
-        car1.draw_car()
+        screen.blit(skid_layer, (0, 0))
+
         car1.move_car1()
         car1.collision_handing(car1.rects)
         car2.collision_handing(car2.rects)
-        car2.draw_car()
         car2.move_car2()
+
+        draw_skid(skid_layer, car1, (25, 20, 20, 150))
+        draw_skid(skid_layer, car2, (20, 20, 30, 140))
+
+        car1.draw_car()
+        car2.draw_car()
+
         controls.pause()
         clock.tick(FPS)
+
         controls.mid_collider_handler(car1, car2, mid_collider_bio)
-        points1, points2, now[0], now[1] = \
-            controls.points_counter(car1, car2,
-                                    start_collider_bio,
-                                    points1, points2, now)
+        points1, points2, now[0], now[1] = controls.points_counter(
+            car1, car2, start_collider_bio, points1, points2, now)
+
         finish(points1, points2)
         pygame.display.update()
 
 
 def finish(points1, points2):
-    paused = False
-    if points1 == 3 or points2 == 3:
-        paused = True
-    while paused:
+    if points1 < MAX_LAPS and points2 < MAX_LAPS:
+        return
+
+    winner = 1 if points1 >= MAX_LAPS else 2
+    color  = (100, 180, 255) if winner == 1 else (100, 255, 140)
+    msg    = f'Игрок {winner} победил!'
+    hint   = 'Нажми Enter для перезапуска'
+
+    overlay   = pygame.Surface((1024, 768), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 170))
+    font_big  = pygame.font.SysFont('arial', 90, bold=True)
+    font_hint = pygame.font.SysFont('arial', 32)
+
+    clock_local = pygame.time.Clock()
+    while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 quit()
         keys = pygame.key.get_pressed()
         if keys[pygame.K_RETURN]:
-            paused = False
-            start()
-        if points1 == 3:
-            controls.print_text('Player 1 wins', 300, 300,
-                                font_colour=(0, 0, 255), font_type='arial',
-                                font_size=100)
-        if points2 == 3:
-            controls.print_text('Player 2 wins', 300, 300,
-                                font_colour=(0, 0, 255), font_type='arial',
-                                font_size=100)
-        points1 = 0
-        points2 = 0
+            break
+
+        screen.blit(overlay, (0, 0))
+
+        shadow = font_big.render(msg, True, (0, 0, 0))
+        text   = font_big.render(msg, True, color)
+        x = 512 - text.get_width() // 2
+        screen.blit(shadow, (x + 5, 305))
+        screen.blit(text,   (x,     300))
+
+        hint_surf = font_hint.render(hint, True, (180, 180, 180))
+        screen.blit(hint_surf, (512 - hint_surf.get_width() // 2, 420))
+
         pygame.display.update()
+        clock_local.tick(60)
+
+    start()
 
 
 def start():
