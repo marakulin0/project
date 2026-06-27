@@ -1,7 +1,15 @@
+import sys
+import os
 import pygame
 from menu import Menu
 from car import Car_road, Car_bio
 import controls
+
+
+def resource(filename):
+    """Возвращает правильный путь к файлу — и в dev-режиме, и внутри .exe"""
+    base = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, filename)
 
 screen = pygame.display.set_mode((1024, 768))
 clock = pygame.time.Clock()
@@ -30,10 +38,10 @@ def draw_skid(skid_layer, car, color=(25, 25, 25, 150)):
 def run_road():
     points1 = points2 = 0
     now = [0, 0]
-    bg = pygame.image.load('road.png')
+    bg = pygame.image.load(resource('road.png'))
     pygame.display.set_caption('Racing')
-    car1 = Car_road(screen, 355, 715, 'car_1.png')
-    car2 = Car_road(screen, 455, 715, 'car_2.png')
+    car1 = Car_road(screen, 355, 715, resource('car_1.png'))
+    car2 = Car_road(screen, 455, 715, resource('car_2.png'))
     skid_layer = pygame.Surface((1024, 768), pygame.SRCALPHA)
 
     controls.countdown(bg)
@@ -75,10 +83,10 @@ def run_road():
 def run_bio():
     points1 = points2 = 0
     now = [0, 0]
-    bg = pygame.image.load('bio.png')
+    bg = pygame.image.load(resource('bio.png'))
     pygame.display.set_caption('Racing')
-    car1 = Car_bio(screen, 875, 535, 'car_1.png')
-    car2 = Car_bio(screen, 960, 535, 'car_2.png')
+    car1 = Car_bio(screen, 875, 535, resource('car_1.png'))
+    car2 = Car_bio(screen, 960, 535, resource('car_2.png'))
     skid_layer = pygame.Surface((1024, 768), pygame.SRCALPHA)
 
     controls.countdown(bg)
@@ -160,7 +168,7 @@ def finish(points1, points2):
 
 def start():
     pygame.init()
-    pygame.mixer.music.load('font_music.MP3')
+    pygame.mixer.music.load(resource('font_music.MP3'))
     pygame.mixer.music.play(-1)
     game.menu()
     game.menu_1()

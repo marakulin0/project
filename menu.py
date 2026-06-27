@@ -1,5 +1,12 @@
-import pygame
 import sys
+import os
+import pygame
+
+
+def resource(filename):
+    base = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, filename)
+
 
 window = pygame.display.set_mode((1024, 768))
 pygame.display.set_caption('racing')
@@ -25,7 +32,7 @@ class Menu:
         pygame.mouse.set_visible(True)
         punkt = 0
         while done:
-            screen.blit(pygame.image.load('menu_bg.jpg'), (0, 0))
+            screen.blit(pygame.image.load(resource('menu_bg.jpg')), (0, 0))
             mp = pygame.mouse.get_pos()
             for i in self.punkts:
                 if mp[0] > i[0] and mp[0] < i[0] + 155 and\
@@ -55,15 +62,15 @@ class Menu:
 
     def menu_1(self):
         cycling = True
-        road = pygame.image.load('road.png')
+        road = pygame.image.load(resource('road.png'))
         road_image = pygame.transform.scale(road, (256, 192))
-        bio = pygame.image.load('bio.png')
+        bio = pygame.image.load(resource('bio.png'))
         bio_image = pygame.transform.scale(bio, (256, 192))
         pygame.key.set_repeat(0, 0)
         pygame.mouse.set_visible(True)
         punkt1 = 0
         while cycling:
-            screen.blit(pygame.image.load('menu_bg.jpg'), (0, 0))
+            screen.blit(pygame.image.load(resource('menu_bg.jpg')), (0, 0))
             screen.blit(road_image, (100, 100))
             screen.blit(bio_image, (600, 100))
             mp = pygame.mouse.get_pos()
