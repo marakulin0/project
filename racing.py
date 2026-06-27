@@ -28,6 +28,8 @@ mid_collider_bio    = pygame.rect.Rect(439, 421,  10, 132)
 
 FPS      = 60
 MAX_LAPS = 3
+P1_COLOR = (100, 180, 255)
+P2_COLOR = (100, 255, 140)
 
 
 def draw_skid(skid_layer, car, color=(25, 25, 25, 150)):
@@ -129,23 +131,37 @@ def run_race(cfg):
         controls.draw_timers(frame - lap_start[0], best[0],
                              frame - lap_start[1], best[1])
 
-        finish(points1, points2)
+        if points1 >= MAX_LAPS or points2 >= MAX_LAPS:
+            finish({'winner': 1 if points1 >= MAX_LAPS else 2,
+                    'laps': [points1, points2],
+                    'best': [best[0], best[1]],
+                    'total': frame})
+            return
+
         pygame.display.update()
 
 
-def finish(points1, points2):
-    if points1 < MAX_LAPS and points2 < MAX_LAPS:
-        return
+def _centered(font, text, y, color, shadow=False):
+    surf = font.render(text, True, color)
+    x = 512 - surf.get_width() // 2
+    if shadow:
+        screen.blit(font.render(text, True, (0, 0, 0)), (x + 4, y + 4))
+    screen.blit(surf, (x, y))
 
-    winner = 1 if points1 >= MAX_LAPS else 2
-    color  = (100, 180, 255) if winner == 1 else (100, 255, 140)
-    msg    = f'Игрок {winner} победил!'
-    hint   = 'Нажми Enter для перезапуска'
 
-    overlay   = pygame.Surface((1024, 768), pygame.SRCALPHA)
-    overlay.fill((0, 0, 0, 170))
-    font_big  = pygame.font.SysFont('arial', 90, bold=True)
-    font_hint = pygame.font.SysFont('arial', 32)
+def finish(results):
+    """Экран результатов. results: winner, laps[2], best[2] (кадры|None), total."""
+    winner = results['winner']
+    wcolor = P1_COLOR if winner == 1 else P2_COLOR
+    laps, best, total = results['laps'], results['best'], results['total']
+
+    overlay = pygame.Surface((1024, 768), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 185))
+    f_title = pygame.font.SysFont('arial', 78, bold=True)
+    f_head  = pygame.font.SysFont('arial', 32, bold=True)
+    f_row   = pygame.font.SysFont('arial', 26)
+    f_total = pygame.font.SysFont('arial', 30, bold=True)
+    f_hint  = pygame.font.SysFont('arial', 26)
 
     clock_local = pygame.time.Clock()
     while True:
@@ -153,20 +169,23 @@ def finish(points1, points2):
             if event.type == pygame.QUIT:
                 pygame.quit()
                 quit()
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_RETURN]:
+        if pygame.key.get_pressed()[pygame.K_RETURN]:
             break
 
         screen.blit(overlay, (0, 0))
+        _centered(f_title, f'ИГРОК {winner} ПОБЕДИЛ!', 140, wcolor, shadow=True)
 
-        shadow = font_big.render(msg, True, (0, 0, 0))
-        text   = font_big.render(msg, True, color)
-        x = 512 - text.get_width() // 2
-        screen.blit(shadow, (x + 5, 305))
-        screen.blit(text,   (x,     300))
+        for cx, pid, col in ((330, 1, P1_COLOR), (694, 2, P2_COLOR)):
+            head = f_head.render(f'Игрок {pid}', True, col)
+            screen.blit(head, (cx - head.get_width() // 2, 300))
+            rows = [f'Круги: {min(laps[pid - 1], MAX_LAPS)}/{MAX_LAPS}',
+                    f'Лучший круг: {controls._fmt_time(best[pid - 1])}']
+            for i, r in enumerate(rows):
+                s = f_row.render(r, True, (230, 230, 235))
+                screen.blit(s, (cx - s.get_width() // 2, 352 + i * 36))
 
-        hint_surf = font_hint.render(hint, True, (180, 180, 180))
-        screen.blit(hint_surf, (512 - hint_surf.get_width() // 2, 420))
+        _centered(f_total, f'Общее время: {controls._fmt_time(total)}', 452, (255, 225, 120))
+        _centered(f_hint, 'Enter — играть заново', 560, (185, 185, 190))
 
         pygame.display.update()
         clock_local.tick(60)

@@ -16,24 +16,44 @@ def print_text(message, x, y, font_colour=(255, 255, 255),
     screen.blit(text, (x, y))
 
 
+def _lap_block(p, left):
+    lbl_font = pygame.font.SysFont('arial', 18, bold=True)
+    num_font = pygame.font.SysFont('arial', 22, bold=True)
+    pid = 'P1' if left else 'P2'
+    pcol = (90, 175, 245) if left else (110, 230, 150)
+    pip_on = (90, 200, 255) if left else (120, 230, 150)
+    shown = min(p, MAX_LAPS)
+    num_s = f'{shown}/{MAX_LAPS}'
+    lbl = lbl_font.render(pid, True, pcol)
+    num = num_font.render(num_s, True, (240, 240, 245))
+
+    def pips(cx0, step):
+        for i in range(MAX_LAPS):
+            cx = cx0 + step * i
+            pygame.draw.circle(screen, pip_on if i < p else (55, 55, 62), (cx, 18), 8)
+            pygame.draw.circle(screen, (170, 170, 180), (cx, 18), 8, 1)
+
+    if left:
+        x = 10
+        screen.blit(lbl, (x, 9))
+        x += lbl.get_width() + 10
+        pips(x + 8, 20)
+        x += MAX_LAPS * 20 + 8
+        screen.blit(num_font.render(num_s, True, (0, 0, 0)), (x + 1, 5))
+        screen.blit(num, (x, 4))
+    else:
+        x = 1014
+        screen.blit(lbl, (x - lbl.get_width(), 9))
+        x -= lbl.get_width() + 10
+        pips(x - 8, -20)
+        x -= MAX_LAPS * 20 + 8
+        screen.blit(num_font.render(num_s, True, (0, 0, 0)), (x - num.get_width() + 1, 5))
+        screen.blit(num, (x - num.get_width(), 4))
+
+
 def draw_laps(p1, p2):
-    font = pygame.font.SysFont('arial', 20, bold=True)
-
-    # Игрок 1 — верхний левый угол
-    label = font.render('P1', True, (220, 220, 220))
-    screen.blit(label, (10, 10))
-    for i in range(MAX_LAPS):
-        color = (80, 210, 80) if i < p1 else (50, 50, 50)
-        pygame.draw.circle(screen, color, (55 + i * 26, 20), 9)
-        pygame.draw.circle(screen, (180, 180, 180), (55 + i * 26, 20), 9, 1)
-
-    # Игрок 2 — верхний правый угол
-    label2 = font.render('P2', True, (220, 220, 220))
-    screen.blit(label2, (875, 10))
-    for i in range(MAX_LAPS):
-        color = (80, 140, 255) if i < p2 else (50, 50, 50)
-        pygame.draw.circle(screen, color, (930 + i * 26, 20), 9)
-        pygame.draw.circle(screen, (180, 180, 180), (930 + i * 26, 20), 9, 1)
+    _lap_block(p1, True)
+    _lap_block(p2, False)
 
 
 def _nitro_bar(x, y, value, boosting):
