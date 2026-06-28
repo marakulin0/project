@@ -1,9 +1,8 @@
 import sys
 import os
-from math import sin, cos, radians
 import pygame
 from menu import Menu
-from car import Car_road, Car_bio, resolve_car_collision, Input
+from car import Car_road, Car_bio, Input
 import controls
 import online
 
@@ -31,23 +30,6 @@ FPS      = 60
 MAX_LAPS = 3
 P1_COLOR = (100, 180, 255)
 P2_COLOR = (100, 255, 140)
-
-
-def draw_skid(skid_layer, car, color=(25, 25, 25, 150)):
-    if car.is_skidding:
-        cx, cy = car.rect.center
-        pygame.draw.circle(skid_layer, color, (cx, cy), 3)
-
-
-def draw_boost(car):
-    """Свечение позади машины, пока активно нитро."""
-    if not car.boosting:
-        return
-    rad = radians(car.angle)
-    bx = int(car.x - sin(rad) * 32)   # позади машины (минус направление вперёд)
-    by = int(car.y + cos(rad) * 32)
-    pygame.draw.circle(screen, (120, 210, 255), (bx, by), 6)
-    pygame.draw.circle(screen, (225, 245, 255), (bx, by), 3)
 
 
 # Конфигурация трасс: фон, класс машины, точки спавна (x, y, угол),
@@ -105,13 +87,13 @@ def run_race(cfg):
 
         car1.move_car1()
         car2.move_car2()
-        resolve_car_collision(car1, car2)
+        car1.collide_with(car2)
 
-        draw_skid(skid_layer, car1, (25, 20, 20, 150))
-        draw_skid(skid_layer, car2, (20, 20, 30, 140))
+        car1.draw_skid(skid_layer, (25, 20, 20, 150))
+        car2.draw_skid(skid_layer, (20, 20, 30, 140))
 
-        draw_boost(car1)
-        draw_boost(car2)
+        car1.draw_boost()
+        car2.draw_boost()
         car1.draw_car()
         car2.draw_car()
 
@@ -210,30 +192,21 @@ def _blit_cd_number(label, color, alpha=255):
 
 
 def _build_state(phase, cd, track, c1, c2, p1, p2, best, lap_start, frame, winner):
-    """Авторитетное состояние гонки (хост -> клиент), JSON-сериализуемое."""
+    """Авторитетное состояние гонки (хост -> клиент), JSON-сериализуемое.
+    Сериализацию каждой машины делегируем самой машине (car.to_state)."""
     return {
         'ph': phase, 'cd': cd, 'track': track,
-        'cars': [[round(c1.x, 1), round(c1.y, 1), round(c1.angle, 1),
-                  round(c1.nitro, 3), c1.boosting],
-                 [round(c2.x, 1), round(c2.y, 1), round(c2.angle, 1),
-                  round(c2.nitro, 3), c2.boosting]],
+        'cars': [c1.to_state(), c2.to_state()],
         'laps': [p1, p2], 'best': best,
         'cur': [frame - lap_start[0], frame - lap_start[1]],
-        'spd': [round(abs(c1.speed), 3), round(abs(c2.speed), 3)],
         'win': winner, 'total': frame,
     }
 
 
 def _apply_state(cars, st):
-    """Клиент: расставляет машины и HUD-поля по присланному состоянию."""
+    """Клиент: расставляет машины по присланному состоянию (car.apply_state)."""
     for car, cs in zip(cars, st['cars']):
-        x, y, ang, nit, boost = cs
-        car.x, car.y, car.angle = x, y, ang
-        car.nitro, car.boosting = nit, boost
-        car.image_to_draw = pygame.transform.rotate(car.base_image, -ang)
-        car.rect = car.image_to_draw.get_rect(center=(round(x), round(y)))
-    cars[0].speed = st['spd'][0]
-    cars[1].speed = st['spd'][1]
+        car.apply_state(cs)
 
 
 def _net_lost():
@@ -325,11 +298,11 @@ def _run_host(cfg, ch):
         screen.blit(skid, (0, 0))
         car1.update(in1)
         car2.update(in2)
-        resolve_car_collision(car1, car2)
-        draw_skid(skid, car1, (25, 20, 20, 150))
-        draw_skid(skid, car2, (20, 20, 30, 140))
-        draw_boost(car1)
-        draw_boost(car2)
+        car1.collide_with(car2)
+        car1.draw_skid(skid, (25, 20, 20, 150))
+        car2.draw_skid(skid, (20, 20, 30, 140))
+        car1.draw_boost()
+        car2.draw_boost()
         car1.draw_car()
         car2.draw_car()
         clock.tick(FPS)
@@ -425,8 +398,8 @@ def _run_client(ch):
 
         _apply_state(cars, st)
         screen.blit(bg, (0, 0))
-        draw_boost(cars[0])
-        draw_boost(cars[1])
+        cars[0].draw_boost()
+        cars[1].draw_boost()
         cars[0].draw_car()
         cars[1].draw_car()
         controls.draw_laps(st['laps'][0], st['laps'][1])

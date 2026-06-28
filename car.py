@@ -20,50 +20,6 @@ from math import sin, cos, radians
 Input = namedtuple('Input', ['gas', 'brake', 'left', 'right', 'boost'],
                    defaults=[False])
 
-CAR_BOUNCE = 0.55   # доля скорости, сохраняемая после столкновения машин
-CAR_HALF_W = 15     # половина ширины кузова (поперёк), px  (спрайт 32 шир.)
-CAR_HALF_L = 32     # половина длины кузова (вдоль),  px  (спрайт 70 длин.)
-
-
-def _obb_radius(angle, axis):
-    """Проекционный «радиус» повёрнутого кузова машины на ось axis."""
-    rad = radians(angle)
-    fx, fy = sin(rad), -cos(rad)        # вектор «вперёд» (вдоль кузова)
-    rx, ry = cos(rad), sin(rad)         # вектор «вправо» (поперёк)
-    return (CAR_HALF_W * abs(rx * axis[0] + ry * axis[1]) +
-            CAR_HALF_L * abs(fx * axis[0] + fy * axis[1]))
-
-
-def resolve_car_collision(a, b):
-    """Коллизия двух машин как повёрнутых прямоугольников (OBB) методом
-    разделяющих осей (SAT): находит минимальный вектор раздвижки, толкает
-    машины в стороны, гасит скорость и выталкивает их из стен."""
-    ra, rb = radians(a.angle), radians(b.angle)
-    axes = [(sin(ra), -cos(ra)), (cos(ra), sin(ra)),
-            (sin(rb), -cos(rb)), (cos(rb), sin(rb))]
-    dx, dy = b.x - a.x, b.y - a.y
-    min_overlap, mtv = 1e9, None
-    for ax in axes:
-        dist = dx * ax[0] + dy * ax[1]
-        overlap = _obb_radius(a.angle, ax) + _obb_radius(b.angle, ax) - abs(dist)
-        if overlap <= 0:
-            return                      # разделяющая ось найдена — нет касания
-        if overlap < min_overlap:
-            min_overlap = overlap
-            s = 1 if dist >= 0 else -1
-            mtv = (ax[0] * s, ax[1] * s)   # ось, направленная от a к b
-    push = min_overlap / 2
-    a.x -= mtv[0] * push
-    a.y -= mtv[1] * push
-    b.x += mtv[0] * push
-    b.y += mtv[1] * push
-    for c in (a, b):
-        c.hitbox.center = (round(c.x), round(c.y))
-        c._depenetrate_walls()
-        c.rect.center = (round(c.x), round(c.y))
-        c.speed *= CAR_BOUNCE
-
-
 class BaseCar():
 
     # --- настройки, переопределяются в подклассах ---
@@ -78,6 +34,9 @@ class BaseCar():
     WALL_BOUNCE = 0.30    # доля скорости, сохраняемая после удара о стену
     HITBOX = 26           # сторона квадратного хитбокса для стен
     SKID_SPEED = 2.8      # порог скорости для следов шин
+    HALF_W = 15           # половина ширины кузова (для OBB-коллизии машин)
+    HALF_L = 32           # половина длины кузова (для OBB-коллизии машин)
+    COLLISION_BOUNCE = 0.55  # доля скорости после столкновения машин
     NITRO_MULT = 1.45     # множитель максимальной скорости при нитро
     NITRO_ACCEL = 1.8     # множитель ускорения при нитро
     NITRO_DRAIN = 1 / 120.0    # расход заряда в кадр (полный бак ~2 c)
@@ -110,6 +69,22 @@ class BaseCar():
 
     def draw_car(self):
         self.screen.blit(self.image_to_draw, self.rect)
+
+    def draw_skid(self, layer, color):
+        """Оставляет след шин на слое layer при заносе."""
+        if self.is_skidding:
+            pygame.draw.circle(layer, color, self.rect.center, 3)
+
+    def draw_boost(self, surface=None):
+        """Свечение позади машины, пока активно нитро."""
+        if not self.boosting:
+            return
+        surface = surface if surface is not None else self.screen
+        rad = radians(self.angle)
+        bx = int(self.x - sin(rad) * 32)   # позади машины (минус курс)
+        by = int(self.y + cos(rad) * 32)
+        pygame.draw.circle(surface, (120, 210, 255), (bx, by), 6)
+        pygame.draw.circle(surface, (225, 245, 255), (bx, by), 3)
 
     def update(self, inp):
         # --- нитро активно при зажатой клавише, наличии заряда и газе вперёд ---
@@ -198,6 +173,43 @@ class BaseCar():
                 self.y = float(self.hitbox.centery)
                 self.speed *= self.WALL_BOUNCE
 
+    def _obb_radius(self, axis):
+        """Проекционный «радиус» повёрнутого кузова на ось axis (для SAT)."""
+        rad = radians(self.angle)
+        fx, fy = sin(rad), -cos(rad)        # вектор «вперёд» (вдоль кузова)
+        rx, ry = cos(rad), sin(rad)         # вектор «вправо» (поперёк)
+        return (self.HALF_W * abs(rx * axis[0] + ry * axis[1]) +
+                self.HALF_L * abs(fx * axis[0] + fy * axis[1]))
+
+    def collide_with(self, other):
+        """Разрешает столкновение двух машин как повёрнутых прямоугольников
+        (OBB, метод разделяющих осей): расталкивает ОБЕ машины по минимальному
+        вектору раздвижки, гасит их скорость и выталкивает из стен."""
+        ra, rb = radians(self.angle), radians(other.angle)
+        axes = [(sin(ra), -cos(ra)), (cos(ra), sin(ra)),
+                (sin(rb), -cos(rb)), (cos(rb), sin(rb))]
+        dx, dy = other.x - self.x, other.y - self.y
+        min_overlap, mtv = 1e9, None
+        for ax in axes:
+            dist = dx * ax[0] + dy * ax[1]
+            overlap = self._obb_radius(ax) + other._obb_radius(ax) - abs(dist)
+            if overlap <= 0:
+                return                      # разделяющая ось — нет касания
+            if overlap < min_overlap:
+                min_overlap = overlap
+                s = 1 if dist >= 0 else -1
+                mtv = (ax[0] * s, ax[1] * s)   # ось, направленная от self к other
+        push = min_overlap / 2
+        self.x -= mtv[0] * push
+        self.y -= mtv[1] * push
+        other.x += mtv[0] * push
+        other.y += mtv[1] * push
+        for c in (self, other):
+            c.hitbox.center = (round(c.x), round(c.y))
+            c._depenetrate_walls()
+            c.rect.center = (round(c.x), round(c.y))
+            c.speed *= c.COLLISION_BOUNCE
+
     def move_car1(self):
         """Локальный адаптер клавиатуры для игрока 1 (WASD + Left Shift)."""
         k = pygame.key.get_pressed()
@@ -210,10 +222,17 @@ class BaseCar():
         self.update(Input(k[pygame.K_UP], k[pygame.K_DOWN],
                           k[pygame.K_LEFT], k[pygame.K_RIGHT], k[pygame.K_RSHIFT]))
 
-    def collision_handing(self, rects):
-        # столкновения теперь разрешаются внутри движения;
-        # метод оставлен для совместимости с racing.py
-        pass
+    def to_state(self):
+        """Снимок состояния машины для отправки по сети (JSON-сериализуемо)."""
+        return [round(self.x, 1), round(self.y, 1), round(self.angle, 1),
+                round(self.nitro, 3), self.boosting, round(abs(self.speed), 3)]
+
+    def apply_state(self, cs):
+        """Восстанавливает машину из снимка to_state() (на стороне клиента)."""
+        self.x, self.y, self.angle, self.nitro, self.boosting, self.speed = cs
+        self.image_to_draw = pygame.transform.rotate(self.base_image, -self.angle)
+        self.rect = self.image_to_draw.get_rect(center=(round(self.x), round(self.y)))
+        self.hitbox.center = (round(self.x), round(self.y))
 
 
 class Car_road(BaseCar):
